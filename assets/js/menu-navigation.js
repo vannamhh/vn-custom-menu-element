@@ -124,7 +124,7 @@ document.addEventListener("DOMContentLoaded", function () {
     item.addEventListener("click", function (e) {
       // 1. Ngăn sự kiện nổi bọt
       e.stopPropagation();
-      e.preventDefault(); // Dòng này quan trọng: Chặn thẻ A chuyển trang lần đầu để mở menu
+      //e.preventDefault(); // Dòng này quan trọng: Chặn thẻ A chuyển trang lần đầu để mở menu
 
       // 2. Tìm menu con trực tiếp
       const subMenu = this.querySelector(":scope > .sub-menu");
@@ -195,18 +195,43 @@ document.addEventListener("DOMContentLoaded", function () {
         );
         siblings.forEach((sibling) => {
           if (sibling !== this) {
+            // Đóng submenu trực tiếp của sibling
             const siblingSub = sibling.querySelector(":scope > .sub-menu");
             const siblingIcon = sibling.querySelector(":scope > .toggle-icon");
             if (siblingSub) siblingSub.classList.remove("is-open");
             if (siblingIcon) siblingIcon.textContent = "+";
+            
+            // Đóng TẤT CẢ submenu lồng nhau bên trong sibling
+            const allNestedSubMenus = sibling.querySelectorAll(".sub-menu");
+            allNestedSubMenus.forEach((nestedSub) => {
+              nestedSub.classList.remove("is-open");
+            });
+            
+            // Reset tất cả icons bên trong sibling
+            const allNestedIcons = sibling.querySelectorAll(".toggle-icon");
+            allNestedIcons.forEach((nestedIcon) => {
+              nestedIcon.textContent = "+";
+            });
           }
         });
 
         // Toggle submenu hiện tại
         if (isSubMenuOpen) {
-          // Đóng submenu
+          // Đóng submenu và tất cả submenu con bên trong
           subMenu.classList.remove("is-open");
           if (icon) icon.textContent = "+";
+          
+          // Đóng tất cả submenu lồng nhau bên trong
+          const allNestedSubMenus = subMenu.querySelectorAll(".sub-menu");
+          allNestedSubMenus.forEach((nestedSub) => {
+            nestedSub.classList.remove("is-open");
+          });
+          
+          // Reset tất cả icons bên trong
+          const allNestedIcons = subMenu.querySelectorAll(".toggle-icon");
+          allNestedIcons.forEach((nestedIcon) => {
+            nestedIcon.textContent = "+";
+          });
         } else {
           // Mở submenu
           subMenu.classList.add("is-open");
