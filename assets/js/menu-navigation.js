@@ -177,7 +177,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         
         // Ngăn chuyển trang
-        e.preventDefault();
+        // e.preventDefault();
         return;
       }
 
@@ -187,7 +187,7 @@ document.addEventListener("DOMContentLoaded", function () {
       // 8. Xử lý submenu nếu có
       if (subMenu) {
         // Ngăn chuyển trang khi click vào item có submenu
-        e.preventDefault();
+        // e.preventDefault();
         
         // Đóng các submenu cùng cấp (không phải top level)
         const siblings = this.parentElement.querySelectorAll(
@@ -252,9 +252,13 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // Tùy chọn: Click ra ngoài khoảng trắng thì đóng tất cả menu và remove active class
+  // Click ra ngoài phạm vi <li> thì đóng tất cả menu và remove active class
   document.addEventListener("click", function (e) {
-    if (!e.target.closest(".vn-menu-list")) {
+    // Kiểm tra xem click có nằm trong bất kỳ <li> nào của menu không
+    const clickedMenuItem = e.target.closest(".vn-menu-list li");
+    
+    if (!clickedMenuItem) {
+      // Click ra ngoài tất cả <li> (có thể là khoảng trắng trong <ul> hoặc bên ngoài menu)
       // Đóng tất cả submenu
       document.querySelectorAll(".sub-menu.is-open").forEach((el) => {
         el.classList.remove("is-open");
