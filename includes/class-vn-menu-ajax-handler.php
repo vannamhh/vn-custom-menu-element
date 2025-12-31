@@ -96,20 +96,43 @@ class VN_Menu_Ajax_Handler {
 	/**
 	 * Get page content by path.
 	 *
+	 * Ưu tiên tìm kiếm theo thứ tự:
+	 * 1. Kết hợp current_page path + page_path (để phân biệt context)
+	 * 2. Tìm theo full page_path
+	 * 3. Chỉ fallback theo slug nếu KHÔNG có current_page
+	 *
 	 * @param string $page_path    The page path (e.g., "dai-hoc/nghe-thuat").
-	 * @param string $current_page The current page URL.
+	 * @param string $current_page The current page URL path.
 	 * @return array|null Page content data or null if not found.
 	 */
 	private function get_page_content_by_path( string $page_path, string $current_page ): ?array {
-		// Try to find by slug first.
-		$page = get_page_by_path( $page_path );
+		$page      = null;
+		$post_type = 'page';
 
+		// Ưu tiên 1: Nếu có current_page, kết hợp parent path trước.
+		if ( ! empty( $current_page ) ) {
+			$parsed_url  = wp_parse_url( $current_page );
+			$parent_path = isset( $parsed_url['path'] ) ? trim( $parsed_url['path'], '/' ) : '';
+
+			if ( ! empty( $parent_path ) ) {
+				// Kết hợp parent path với page path.
+				$full_path = $parent_path . '/' . $page_path;
+				$page      = get_page_by_path( $full_path, OBJECT, $post_type );
+			}
+		}
+
+		// Ưu tiên 2: Tìm theo full page_path (trường hợp user nhập đầy đủ).
 		if ( ! $page ) {
-			// Try as post slug.
+			$page = get_page_by_path( $page_path, OBJECT, $post_type );
+		}
+
+		// Ưu tiên 3: CHỈ dùng fallback slug khi KHÔNG có current_page (ngữ cảnh không rõ).
+		// Tránh trường hợp trùng slug: dai-hoc/nghe-thuat vs cao-hoc/nghe-thuat.
+		if ( ! $page && empty( $current_page ) ) {
 			$posts = get_posts(
 				array(
 					'name'           => basename( $page_path ),
-					'post_type'      => array( 'page', 'post', 'any' ),
+					'post_type'      => array( 'page', 'post' ),
 					'posts_per_page' => 1,
 					'post_status'    => 'publish',
 				)
@@ -120,8 +143,8 @@ class VN_Menu_Ajax_Handler {
 			}
 		}
 
+		// Nếu vẫn không tìm thấy, thử filter cho custom content types.
 		if ( ! $page ) {
-			// Allow custom filtering for other content types.
 			$content_data = apply_filters( 'vn_menu_get_custom_content', null, $page_path, $current_page );
 
 			if ( $content_data ) {
@@ -151,6 +174,7 @@ class VN_Menu_Ajax_Handler {
 			'title'        => get_the_title( $page->ID ),
 			'featured_img' => $featured_img,
 			'id'           => $page->ID,
+			'path'         => $page_path,
 		);
 	}
 }

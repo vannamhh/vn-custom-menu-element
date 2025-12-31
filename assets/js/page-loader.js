@@ -18,12 +18,23 @@
         return;
     }
 
-    // Cache để lưu nội dung (key là path).
+    // Cache để lưu nội dung (key là pathname + pagePath).
     const contentCache = {};
 
     // Cache để lưu path hiện tại.
     let currentPath = null;
+    let currentPagePathname = null;
     let isLoading = false;
+
+    /**
+     * Tạo cache key unique từ pathname và pagePath
+     *
+     * @param {string} pagePath - Hash path (ví dụ: "dai-hoc/nghe-thuat")
+     * @return {string} Cache key unique
+     */
+    function getCacheKey(pagePath) {
+        return window.location.pathname + '|' + pagePath;
+    }
 
     // Selectors - có thể override từ data attributes.
     let menuSelector = '.ajax-menu';
@@ -54,7 +65,11 @@
     function loadPageContent(pagePath, isPopState) {
         isPopState = isPopState || false;
 
-        if (isLoading || currentPath === pagePath) {
+        var currentPathname = window.location.pathname;
+        var cacheKey = getCacheKey(pagePath);
+
+        // Kiểm tra nếu đang load cùng một nội dung (cùng pathname + pagePath).
+        if (isLoading || (currentPath === pagePath && currentPagePathname === currentPathname)) {
             return;
         }
 
@@ -65,6 +80,7 @@
 
         isLoading = true;
         currentPath = pagePath;
+        currentPagePathname = currentPathname;
 
         // Cập nhật active class cho menu.
         updateActiveMenuLink(pagePath);
@@ -78,9 +94,9 @@
 
         // Chờ animation fade-out hoàn thành.
         setTimeout(function () {
-            // Kiểm tra cache trước.
-            if (contentCache[pagePath]) {
-                renderCachedContent(pagePath, targetContainer, heroSection, isPopState);
+            // Kiểm tra cache trước (dùng cacheKey để đảm bảo đúng nội dung cho từng trang).
+            if (contentCache[cacheKey]) {
+                renderCachedContent(cacheKey, pagePath, targetContainer, heroSection, isPopState);
                 return;
             }
 
@@ -115,9 +131,15 @@
 
     /**
      * Render cached content
+     *
+     * @param {string} cacheKey - Unique cache key (pathname + pagePath)
+     * @param {string} pagePath - Hash path để cập nhật URL
+     * @param {Element} targetContainer - Container element
+     * @param {Element} heroSection - Hero section element
+     * @param {boolean} isPopState - Có phải từ popstate event không
      */
-    function renderCachedContent(pagePath, targetContainer, heroSection, isPopState) {
-        const cached = contentCache[pagePath];
+    function renderCachedContent(cacheKey, pagePath, targetContainer, heroSection, isPopState) {
+        const cached = contentCache[cacheKey];
         targetContainer.innerHTML = cached.content || cached;
 
         if (cached.featured_img) {
@@ -146,9 +168,14 @@
      */
     function handleAjaxSuccess(response, pagePath, targetContainer, isPopState) {
         if (response.success && response.data.content) {
-            contentCache[pagePath] = response.data;
+            var cacheKey = getCacheKey(pagePath);
+            contentCache[cacheKey] = response.data;
 
-            if (currentPath === pagePath) {
+            // Kiểm tra cả pagePath và pathname để đảm bảo render đúng nội dung.
+            var isCurrentRequest = currentPath === pagePath && 
+                                   currentPagePathname === window.location.pathname;
+
+            if (isCurrentRequest) {
                 targetContainer.innerHTML = response.data.content;
 
                 if (response.data.featured_img) {
