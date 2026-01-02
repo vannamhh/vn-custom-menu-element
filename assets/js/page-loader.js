@@ -106,21 +106,45 @@
             targetContainer.classList.add('ajax-fade-in');
         }, 300);
 
+        // Encode page_path bằng base64 để bypass ModSecurity rules trên SiteGround.
+        var encodedPath = btoa(pagePath);
+
         // Gọi AJAX.
         $.ajax({
             url: vnMenuPageLoader.ajaxUrl,
             type: 'POST',
             data: {
                 action: 'vn_menu_load_page_content',
-                page_path: pagePath,
+                page_path: encodedPath,
                 current_page: window.location.pathname,
                 nonce: vnMenuPageLoader.nonce
             },
             success: function (response) {
                 handleAjaxSuccess(response, pagePath, targetContainer, isPopState);
             },
-            error: function () {
-                targetContainer.innerHTML = '<div class="vn-error-content">' + vnMenuPageLoader.i18n.error + '</div>';
+            error: function (xhr, status, error) {
+                // Log error for debugging.
+                if (window.console && console.error) {
+                    console.error('VN Menu AJAX Error:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        response: xhr.responseText,
+                        pagePath: pagePath,
+                        error: error
+                    });
+                }
+
+                // Nếu lỗi 403, có thể do ModSecurity - suggest fallback.
+                if (xhr.status === 403) {
+                    var errorMsg = '<div class="vn-error-content">';
+                    errorMsg += '<p>' + vnMenuPageLoader.i18n.error + '</p>';
+                    errorMsg += '<p><small>Lỗi bảo mật của hosting. <a href="#' + pagePath + '" onclick="location.reload()">Tải lại trang</a></small></p>';
+                    errorMsg += '</div>';
+                    targetContainer.innerHTML = errorMsg;
+                } else {
+                    targetContainer.innerHTML = '<div class="vn-error-content">' + vnMenuPageLoader.i18n.error + '</div>';
+                }
+                
                 applyFadeInEffect(targetContainer, null);
             },
             complete: function () {

@@ -3,7 +3,7 @@
  * Plugin Name: VN Custom Menu Element
  * Plugin URI: https://wpmasterynow.com/
  * Description: Tạo element Flatsome UX Builder cho phép chèn menu vào bất kỳ vị trí nào trong nội dung trang với đầy đủ tùy chọn responsive và AJAX page loader.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: VN
  * Author URI: https://wpmasterynow.com/
  * Text Domain: vn-custom-menu-element
@@ -12,6 +12,8 @@
  * Requires PHP: 7.4
  *
  * @package VN_Custom_Menu_Element
+ * @changelog
+ * 2.1.0 - Added base64 encoding to bypass ModSecurity rules on SiteGround hosting
  */
 
 declare(strict_types=1);
@@ -23,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Define plugin constants.
 if ( ! defined( 'VN_MENU_VERSION' ) ) {
-	define( 'VN_MENU_VERSION', '2.0.0' );
+	define( 'VN_MENU_VERSION', '2.1.0' );
 }
 
 if ( ! defined( 'VN_MENU_PLUGIN_DIR' ) ) {

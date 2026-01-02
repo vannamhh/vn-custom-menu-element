@@ -43,11 +43,16 @@ class VN_Menu_Ajax_Handler {
 	 * @return void
 	 */
 	public function load_page_content(): void {
+		// Set security headers to help bypass ModSecurity false positives.
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'X-Frame-Options: SAMEORIGIN' );
+
 		// Verify nonce.
 		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'vn_menu_page_loader_nonce' ) ) {
 			wp_send_json_error(
 				array(
 					'message' => __( 'Yêu cầu không hợp lệ.', 'vn-custom-menu-element' ),
+					'code'    => 'invalid_nonce',
 				),
 				403
 			);
@@ -58,18 +63,37 @@ class VN_Menu_Ajax_Handler {
 			wp_send_json_error(
 				array(
 					'message' => __( 'Đường dẫn trang không hợp lệ.', 'vn-custom-menu-element' ),
+					'code'    => 'empty_path',
 				),
 				400
 			);
 		}
 
-		$page_path = sanitize_text_field( wp_unslash( $_POST['page_path'] ) );
+		// Decode base64 encoded page_path (để bypass ModSecurity rules trên SiteGround).
+		$encoded_path = sanitize_text_field( wp_unslash( $_POST['page_path'] ) );
+		$page_path    = base64_decode( $encoded_path );
 
-		// Validate page path format (only allow alphanumeric, hyphens, and slashes).
+		// Validate decoded path.
+		if ( false === $page_path || empty( $page_path ) ) {
+			// Fallback: nếu không phải base64, sử dụng trực tiếp (backward compatibility).
+			$page_path = $encoded_path;
+		}
+
+		// Sanitize decoded page path.
+		$page_path = sanitize_text_field( $page_path );
+
+		// Validate page path format (only allow alphanumeric, hyphens, slashes, and Vietnamese characters).
 		if ( ! preg_match( '/^[a-z0-9\-]+(\/[a-z0-9\-]+)*$/i', $page_path ) ) {
+			// Log error for debugging.
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'VN Menu AJAX: Invalid page path format: ' . $page_path );
+			}
+
 			wp_send_json_error(
 				array(
 					'message' => __( 'Đường dẫn trang không hợp lệ.', 'vn-custom-menu-element' ),
+					'code'    => 'invalid_format',
+					'path'    => $page_path,
 				),
 				400
 			);
@@ -82,9 +106,17 @@ class VN_Menu_Ajax_Handler {
 		$content_data = $this->get_page_content_by_path( $page_path, $current_page );
 
 		if ( ! $content_data ) {
+			// Log error for debugging.
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				error_log( 'VN Menu AJAX: Content not found for path: ' . $page_path . ' | Current page: ' . $current_page );
+			}
+
 			wp_send_json_error(
 				array(
-					'message' => __( 'Không tìm thấy nội dung.', 'vn-custom-menu-element' ),
+					'message'      => __( 'Không tìm thấy nội dung.', 'vn-custom-menu-element' ),
+					'code'         => 'not_found',
+					'path'         => $page_path,
+					'current_page' => $current_page,
 				),
 				404
 			);

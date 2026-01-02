@@ -1,5 +1,7 @@
 # VN Custom Menu Element
 
+**Version:** 2.1.0 | **Author:** VN | **Plugin URI:** https://wpmasterynow.com/
+
 Plugin WordPress cho phép chèn menu vào bất kỳ vị trí nào trong nội dung trang thông qua Flatsome UX Builder với tính năng AJAX Page Loader.
 
 ## Tính năng
@@ -14,6 +16,8 @@ Plugin WordPress cho phép chèn menu vào bất kỳ vị trí nào trong nội
 - ✅ **Content Caching**: Lưu cache nội dung đã tải để tăng tốc
 - ✅ **History API**: Hỗ trợ browser back/forward navigation
 - ✅ **Flatsome Integration**: Tự động reinitialize Accordion, Tabs sau AJAX
+- ✅ **[NEW v2.1.0]** Base64 encoding để bypass ModSecurity trên SiteGround
+- ✅ **[NEW v2.1.0]** Enhanced error logging & security headers
 
 ## Cấu trúc Plugin
 
@@ -199,6 +203,18 @@ Plugin đã bao gồm CSS đầy đủ cho menu và AJAX animations. Để tùy 
 - Input sanitization với `sanitize_text_field()`
 - Output escaping với `esc_html()`, `esc_attr()`, `esc_url()`
 - Direct file access prevention
+- **[v2.1.0]** Base64 encoding để bypass ModSecurity rules
+- **[v2.1.0]** Security headers (X-Content-Type-Options, X-Frame-Options)
+
+## 🛡️ Hosting Compatibility
+
+### SiteGround Hosting
+Plugin tự động xử lý ModSecurity rules của SiteGround:
+- Base64 encoding cho page paths trong AJAX requests
+- Enhanced error logging cho debugging
+- Fallback mechanism khi AJAX bị chặn
+
+**Gặp lỗi 403?** Xem hướng dẫn chi tiết: [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 
 ## Tác giả
 
@@ -207,9 +223,23 @@ Website: [https://wpmasterynow.com/](https://wpmasterynow.com/)
 
 ## Hỗ trợ
 
-Nếu bạn gặp vấn đề hoặc có câu hỏi, vui lòng liên hệ qua website.
+Nếu bạn gặp vấn đề hoặc có câu hỏi:
+1. Kiểm tra [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+2. Enable WP_DEBUG để xem error logs
+3. Kiểm tra browser console (DevTools F12)
+4. Liên hệ qua website
 
 ## Changelog
+
+### 2.1.0 - 2026-01-02
+- **FIXED:** Lỗi 403 Forbidden trên SiteGround hosting
+- Thêm base64 encoding cho page paths để bypass ModSecurity
+- Enhanced error logging với detailed debug info
+- Thêm security headers (X-Content-Type-Options, X-Frame-Options)
+- Better error messages hiển thị cho users
+- Fallback mechanism khi AJAX request bị chặn
+- Tạo comprehensive troubleshooting guide
+- Backward compatibility với non-encoded requests
 
 ### 2.0.0 - 2025-01-xx
 - Tái cấu trúc plugin với OOP pattern
