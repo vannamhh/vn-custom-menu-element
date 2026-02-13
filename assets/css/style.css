@@ -734,6 +734,7 @@
     min-height: var(--height-submenu);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     position: relative;
     white-space: normal;
     text-align: left;
@@ -758,8 +759,13 @@
     content: "\ea04";
     font-size: 0.85em;
     margin-left: 1.4rem;
+    transition: transform 0.3s ease;
+}
+
+#vn-submenu-portal .sub-menu>li.menu-item-has-children:has(.sub-menu.is-open)>a::after {
     transform: rotate(90deg);
 }
+
 
 #vn-submenu-portal .sub-menu .sub-menu {
     position: relative;
