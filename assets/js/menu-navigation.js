@@ -114,7 +114,87 @@
 })();
 
 document.addEventListener("DOMContentLoaded", function () {
+  // ============================================
+  // DOM Portal — Level 2 Submenu
+  // ============================================
+  const portal = document.createElement('div');
+  portal.id = 'vn-submenu-portal';
+  portal.className = 'curriculum-menu';
+  document.body.appendChild(portal);
+
+  /**
+   * Di chuyển submenu Level 2 vào portal container trên body.
+   * Dùng position: absolute theo body để tránh bị cắt bởi overflow.
+   */
+  function moveToPortal(parentLi, subMenu) {
+    var placeholder = document.createComment('portal-placeholder');
+    subMenu._placeholder = placeholder;
+    subMenu._topLevelItem = parentLi;
+    parentLi._portaledSubmenu = subMenu;
+    parentLi.insertBefore(placeholder, subMenu);
+
+    var rect = parentLi.getBoundingClientRect();
+    subMenu.style.position = 'absolute';
+    subMenu.style.top = (rect.bottom + window.scrollY) + 'px';
+    subMenu.style.left = (rect.left + window.scrollX) + 'px';
+    subMenu.style.width = rect.width + 'px';
+    subMenu.style.zIndex = '99';
+    subMenu.classList.add('vn-menu-list');
+
+    // Boundary check: tràn phải màn hình
+    if (rect.left + rect.width > window.innerWidth) {
+      subMenu.style.left = (rect.right - rect.width + window.scrollX) + 'px';
+    }
+
+    portal.appendChild(subMenu);
+  }
+
+  /**
+   * Trả submenu từ portal về vị trí gốc trong DOM.
+   * Xóa sạch inline styles và references.
+   */
+  function returnFromPortal(subMenu) {
+    if (!subMenu || !subMenu._placeholder) return;
+    var placeholder = subMenu._placeholder;
+    var parentNode = placeholder.parentNode;
+    if (!parentNode) return;
+
+    parentNode.insertBefore(subMenu, placeholder);
+    parentNode.removeChild(placeholder);
+
+    delete subMenu._placeholder;
+    delete subMenu._topLevelItem;
+    if (parentNode._portaledSubmenu === subMenu) {
+      delete parentNode._portaledSubmenu;
+    }
+    subMenu.classList.remove('vn-menu-list');
+    subMenu.style.cssText = '';
+  }
+
+  /**
+   * Đóng tất cả Level 2 submenus và trả portal về DOM gốc.
+   */
+  function closeAllLevel2Menus() {
+    var portalSubs = portal.querySelectorAll('.sub-menu');
+    portalSubs.forEach(function(sub) {
+      sub.classList.remove('is-open');
+      sub.querySelectorAll('.sub-menu.is-open').forEach(function(s) {
+        s.classList.remove('is-open');
+      });
+      sub.querySelectorAll('.toggle-icon').forEach(function(i) {
+        i.textContent = '+';
+      });
+      returnFromPortal(sub);
+    });
+    // Reset active states
+    document.querySelectorAll('.curriculum-menu .vn-menu-list>li.active').forEach(function(el) {
+      el.classList.remove('active');
+    });
+  }
+
+  // ============================================
   // Xử lý Accordion bằng CLICK (Thay cho Hover)
+  // ============================================
   const menuItems = document.querySelectorAll(
     ".vn-menu-list li",
   );
@@ -126,12 +206,17 @@ document.addEventListener("DOMContentLoaded", function () {
       e.stopPropagation();
       //e.preventDefault(); // Dòng này quan trọng: Chặn thẻ A chuyển trang lần đầu để mở menu
 
-      // 2. Tìm menu con trực tiếp
-      const subMenu = this.querySelector(":scope > .sub-menu");
+      // 2. Tìm menu con trực tiếp (R1: fallback khi submenu đang ở portal)
+      const subMenu = this.querySelector(":scope > .sub-menu") || this._portaledSubmenu || null;
       const icon = this.querySelector(":scope > .toggle-icon");
 
-      // 3. Tìm menu cha cấp cao nhất (top level)
-      const topLevelItem = this.closest(".vn-menu-list > li");
+      // 3. Tìm menu cha cấp cao nhất (R2: fallback khi click item trong portal)
+      //    Dùng .vn-menu-viewport prefix để chỉ match top-level items gốc, không match
+      //    items bên trong portal (portal'd submenu cũng có class .vn-menu-list)
+      const topLevelItem = this.closest(".vn-menu-viewport .vn-menu-list > li")
+        || (this.closest(".sub-menu") && this.closest(".sub-menu")._topLevelItem)
+        || null;
+      if (!topLevelItem) return; // Safety guard — portal edge case
       const menuList = topLevelItem.parentElement;
       
       // 4. Kiểm tra xem item hiện tại đã active chưa
@@ -142,6 +227,8 @@ document.addEventListener("DOMContentLoaded", function () {
       const allTopLevelItems = menuList.querySelectorAll(":scope > li");
       allTopLevelItems.forEach((sibling) => {
         if (sibling !== topLevelItem) {
+          // Trả portal submenu về trước khi đóng (R3)
+          if (sibling._portaledSubmenu) returnFromPortal(sibling._portaledSubmenu);
           // Remove active class
           sibling.classList.remove("active");
           
@@ -161,6 +248,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // 6. Xử lý toggle cho menu hiện tại
       if (isCurrentlyActive && topLevelItem === this) {
+        // Trả portal submenu về trước khi đóng
+        if (topLevelItem._portaledSubmenu) returnFromPortal(topLevelItem._portaledSubmenu);
         // Nếu click vào menu top-level đang active -> Đóng và remove active
         topLevelItem.classList.remove("active");
         
@@ -217,6 +306,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Toggle submenu hiện tại
         if (isSubMenuOpen) {
+          // Trả portal trước khi đóng
+          if (subMenu._placeholder) returnFromPortal(subMenu);
           // Đóng submenu và tất cả submenu con bên trong
           subMenu.classList.remove("is-open");
           if (icon) icon.textContent = "+";
@@ -235,6 +326,11 @@ document.addEventListener("DOMContentLoaded", function () {
         } else {
           // Mở submenu
           subMenu.classList.add("is-open");
+          // Portal CHỈ cho Level 2 (con trực tiếp của top-level li trong viewport gốc)
+          // Kiểm tra parentElement + phải nằm trong .vn-menu-viewport (không phải portal)
+          if (subMenu.parentElement === topLevelItem && topLevelItem.closest('.vn-menu-viewport')) {
+            moveToPortal(topLevelItem, subMenu);
+          }
           if (icon) icon.textContent = "-";
         }
       } else {
@@ -254,10 +350,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Click ra ngoài phạm vi <li> thì đóng tất cả menu và remove active class
   document.addEventListener("click", function (e) {
-    // Kiểm tra xem click có nằm trong bất kỳ <li> nào của menu không
-    const clickedMenuItem = e.target.closest(".vn-menu-list li");
+    // Kiểm tra xem click có nằm trong bất kỳ <li> nào của menu không (R5: bao gồm portal)
+    const clickedMenuItem = e.target.closest(".vn-menu-list li")
+      || e.target.closest("#vn-submenu-portal li");
     
     if (!clickedMenuItem) {
+      // Trả tất cả portal submenu về DOM gốc trước
+      closeAllLevel2Menus();
       // Click ra ngoài tất cả <li> (có thể là khoảng trắng trong <ul> hoặc bên ngoài menu)
       // Đóng tất cả submenu
       document.querySelectorAll(".sub-menu.is-open").forEach((el) => {
@@ -272,5 +371,13 @@ document.addEventListener("DOMContentLoaded", function () {
         el.classList.remove("active");
       });
     }
+  });
+
+  // ============================================
+  // Environment Listeners — đóng portal khi môi trường thay đổi
+  // ============================================
+  window.addEventListener('resize', closeAllLevel2Menus);
+  document.querySelectorAll('.vn-menu-viewport').forEach(function(vp) {
+    vp.addEventListener('scroll', closeAllLevel2Menus);
   });
 });
