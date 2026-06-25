@@ -35,6 +35,30 @@ class VN_Menu_Ajax_Handler {
 	private function init_hooks(): void {
 		add_action( 'wp_ajax_vn_menu_load_page_content', array( $this, 'load_page_content' ) );
 		add_action( 'wp_ajax_nopriv_vn_menu_load_page_content', array( $this, 'load_page_content' ) );
+
+		// Endpoint cấp nonce mới (chạy qua admin-ajax.php nên không bị SiteGround cache).
+		add_action( 'wp_ajax_vn_menu_get_nonce', array( $this, 'get_nonce' ) );
+		add_action( 'wp_ajax_nopriv_vn_menu_get_nonce', array( $this, 'get_nonce' ) );
+	}
+
+	/**
+	 * Trả về một nonce mới.
+	 *
+	 * Khi HTML trang bị cache trên SiteGround, nonce nhúng sẵn sẽ hết hạn và gây
+	 * lỗi 403 invalid_nonce. Endpoint này đi qua admin-ajax.php (không bao giờ bị
+	 * cache) nên luôn cấp được nonce hợp lệ cho phiên hiện tại.
+	 *
+	 * @return void
+	 */
+	public function get_nonce(): void {
+		header( 'X-Content-Type-Options: nosniff' );
+		nocache_headers();
+
+		wp_send_json_success(
+			array(
+				'nonce' => wp_create_nonce( 'vn_menu_page_loader_nonce' ),
+			)
+		);
 	}
 
 	/**
@@ -46,6 +70,9 @@ class VN_Menu_Ajax_Handler {
 		// Set security headers to help bypass ModSecurity false positives.
 		header( 'X-Content-Type-Options: nosniff' );
 		header( 'X-Frame-Options: SAMEORIGIN' );
+
+		// Đảm bảo phản hồi AJAX không bị SiteGround cache (tránh nonce/nội dung cũ).
+		nocache_headers();
 
 		// Verify nonce.
 		if ( ! isset( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'vn_menu_page_loader_nonce' ) ) {

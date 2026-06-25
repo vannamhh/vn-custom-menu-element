@@ -13,6 +13,7 @@
  *
  * @package VN_Custom_Menu_Element
  * @changelog
+ * 2.2.0 - Fix 403 invalid_nonce trên SiteGround: thêm endpoint cấp nonce mới + tự refresh & retry khi nonce hết hạn do cache
  * 2.1.0 - Added base64 encoding to bypass ModSecurity rules on SiteGround hosting
  */
 
@@ -25,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 // Define plugin constants.
 if ( ! defined( 'VN_MENU_VERSION' ) ) {
-	define( 'VN_MENU_VERSION', '2.1.0' );
+	define( 'VN_MENU_VERSION', '2.2.0' );
 }
 
 if ( ! defined( 'VN_MENU_PLUGIN_DIR' ) ) {

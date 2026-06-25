@@ -106,10 +106,22 @@
             targetContainer.classList.add('ajax-fade-in');
         }, 300);
 
+        // Gửi request (tự refresh nonce + retry nếu nonce hết hạn do trang bị cache).
+        sendContentRequest(pagePath, targetContainer, isPopState, true);
+    }
+
+    /**
+     * Gửi AJAX request load nội dung trang.
+     *
+     * @param {string}  pagePath        - Đường dẫn trang
+     * @param {Element} targetContainer - Container hiển thị nội dung
+     * @param {boolean} isPopState      - Có phải từ popstate không
+     * @param {boolean} allowRetry      - Cho phép refresh nonce + retry 1 lần khi gặp invalid_nonce
+     */
+    function sendContentRequest(pagePath, targetContainer, isPopState, allowRetry) {
         // Encode page_path bằng base64 để bypass ModSecurity rules trên SiteGround.
         var encodedPath = btoa(pagePath);
 
-        // Gọi AJAX.
         $.ajax({
             url: vnMenuPageLoader.ajaxUrl,
             type: 'POST',
@@ -123,34 +135,96 @@
                 handleAjaxSuccess(response, pagePath, targetContainer, isPopState);
             },
             error: function (xhr, status, error) {
-                // Log error for debugging.
-                if (window.console && console.error) {
-                    console.error('VN Menu AJAX Error:', {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        response: xhr.responseText,
-                        pagePath: pagePath,
-                        error: error
+                // Nonce hết hạn (trang phục vụ từ cache SiteGround) -> lấy nonce mới rồi thử lại 1 lần.
+                if (allowRetry && xhr.status === 403 && isInvalidNonceError(xhr)) {
+                    refreshNonce(function (success) {
+                        if (success) {
+                            isLoading = true;
+                            sendContentRequest(pagePath, targetContainer, isPopState, false);
+                        } else {
+                            handleAjaxError(xhr, status, error, pagePath, targetContainer);
+                        }
                     });
+                    return;
                 }
 
-                // Nếu lỗi 403, có thể do ModSecurity - suggest fallback.
-                if (xhr.status === 403) {
-                    var errorMsg = '<div class="vn-error-content">';
-                    errorMsg += '<p>' + vnMenuPageLoader.i18n.error + '</p>';
-                    errorMsg += '<p><small>Lỗi bảo mật của hosting. <a href="#' + pagePath + '" onclick="location.reload()">Tải lại trang</a></small></p>';
-                    errorMsg += '</div>';
-                    targetContainer.innerHTML = errorMsg;
-                } else {
-                    targetContainer.innerHTML = '<div class="vn-error-content">' + vnMenuPageLoader.i18n.error + '</div>';
-                }
-                
-                applyFadeInEffect(targetContainer, null);
+                handleAjaxError(xhr, status, error, pagePath, targetContainer);
             },
             complete: function () {
                 isLoading = false;
             }
         });
+    }
+
+    /**
+     * Kiểm tra phản hồi 403 có phải do nonce hết hạn không.
+     *
+     * @param {Object} xhr - jqXHR object
+     * @return {boolean}
+     */
+    function isInvalidNonceError(xhr) {
+        if (!xhr || !xhr.responseText) {
+            return false;
+        }
+        try {
+            var json = JSON.parse(xhr.responseText);
+            return !!(json && json.data && json.data.code === 'invalid_nonce');
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Lấy nonce mới từ admin-ajax.php (không bị cache) và cập nhật vào biến localized.
+     *
+     * @param {Function} callback - Nhận tham số boolean: true nếu lấy được nonce mới
+     */
+    function refreshNonce(callback) {
+        $.ajax({
+            url: vnMenuPageLoader.ajaxUrl,
+            type: 'POST',
+            data: { action: 'vn_menu_get_nonce' },
+            success: function (response) {
+                if (response && response.success && response.data && response.data.nonce) {
+                    vnMenuPageLoader.nonce = response.data.nonce;
+                    callback(true);
+                } else {
+                    callback(false);
+                }
+            },
+            error: function () {
+                callback(false);
+            }
+        });
+    }
+
+    /**
+     * Hiển thị thông báo lỗi khi AJAX thất bại.
+     */
+    function handleAjaxError(xhr, status, error, pagePath, targetContainer) {
+        // Log error for debugging.
+        if (window.console && console.error) {
+            console.error('VN Menu AJAX Error:', {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                response: xhr.responseText,
+                pagePath: pagePath,
+                error: error
+            });
+        }
+
+        // Nếu lỗi 403, có thể do ModSecurity - suggest fallback.
+        if (xhr.status === 403) {
+            var errorMsg = '<div class="vn-error-content">';
+            errorMsg += '<p>' + vnMenuPageLoader.i18n.error + '</p>';
+            errorMsg += '<p><small>Lỗi bảo mật của hosting. <a href="#' + pagePath + '" onclick="location.reload()">Tải lại trang</a></small></p>';
+            errorMsg += '</div>';
+            targetContainer.innerHTML = errorMsg;
+        } else {
+            targetContainer.innerHTML = '<div class="vn-error-content">' + vnMenuPageLoader.i18n.error + '</div>';
+        }
+
+        applyFadeInEffect(targetContainer, null);
     }
 
     /**
